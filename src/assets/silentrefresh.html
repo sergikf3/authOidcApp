@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>oidc-client silentrefresh</title>
+</head>
+
+<body>
+    <script src='./oidc-client.js'></script>
+    <script>
+        var hash = window.location.hash.substr(1);
+        var result_authorize = hash.split('&').reduce(function (result_authorize, item) {
+            var parts = item.split('=');
+            result_authorize[parts[0]] = parts[1];
+            return result_authorize;
+        }, {});
+
+        console.info("result_authorize: " + JSON.stringify(result_authorize));
+
+        var authConf = null;
+        try {
+            var authConfSerialized = localStorage.getItem(location.host + ':environment.authentication');
+            if (authConfSerialized) {
+                authConf = JSON.parse(authConfSerialized);
+            }
+        } catch (err) { console.error(err); }
+
+        Oidc.Log.logger = console;
+        Oidc.Log.logLevel = Oidc.Log.DEBUG;
+
+        var mgr = null;
+        if (authConf) {
+            mgr = new Oidc.UserManager(authConf);
+        } else {
+            mgr = new Oidc.UserManager();
+        }
+
+        if (result_authorize['error'] !== 'interaction_required') {
+            mgr.signinSilentCallback();
+        }
+    </script>
+</body>
+
+</html>

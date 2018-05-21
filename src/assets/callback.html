@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>oidc-client callback</title>
+</head>
+
+<body>
+    <pre id='out'></pre>
+    <script src='./oidc-client.js'></script>
+    <script>
+        var authConf = null;
+        try {
+            var authConfSerialized = localStorage.getItem(location.host + ':environment.authentication');
+            if (authConfSerialized) {
+                authConf = JSON.parse(authConfSerialized);
+            }
+        } catch (err) { console.error(err); }
+
+        Oidc.Log.logger = console;
+        Oidc.Log.logLevel = Oidc.Log.DEBUG;
+
+        var mgr = null;
+        if (authConf) {
+            mgr = new Oidc.UserManager(authConf);
+        } else {
+            mgr = new Oidc.UserManager();
+        }
+        mgr.signinRedirectCallback().then(function (user) {
+            console.log("signin response success", user);
+            var appUri = localStorage.getItem(location.host + ':callback');
+            if (appUri) {
+                location.assign(appUri);
+            } else {
+                location.assign(location.origin);
+            }
+        }).catch(function (err) {
+            console.log("error");
+            console.log(err);
+            mgr.signinRedirect();
+        });
+    </script>
+</body>
+
+</html>

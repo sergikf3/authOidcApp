@@ -1,0 +1,28 @@
+<ion-header>
+  <ion-navbar>
+    <ion-title>
+      Ionic Blank
+    </ion-title>
+  </ion-navbar>
+</ion-header>
+
+<ion-content padding>
+
+  <h2 *ngIf="isAuthenticated()" text-center>User:</h2>
+  <ul *ngIf="isAuthenticated()">
+    <li *ngFor="let item of profile">
+      {{ item}}
+    </li>
+  </ul>
+  <h2 *ngIf="isAuthenticated()" text-center>is logged in!
+    <p>
+      <strong>{{timeoutService.idleState}}</strong>
+    </p>
+  </h2>
+  <h2 *ngIf="!isAuthenticated()" text-center>User is not logged in!</h2>
+
+  <button full ion-button color="primary" (click)="loginUser()" *ngIf="!isAuthenticated()">Login</button>
+  <button full ion-button color="danger" (click)="logoutUser()" *ngIf="isAuthenticated()">Logout</button>
+  <button full ion-button color="secondary" (click)="nextPage()">Next Page</button>
+
+</ion-content>
