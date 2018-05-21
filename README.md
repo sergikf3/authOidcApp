@@ -14,6 +14,7 @@ Node.js v4.4 or later and recent Ionic are required.
 
 ## Tutorial of the Ionic application creation
 
+```
 $ ionic start authOidcApp blank --type=ionic-angular
 ✔ Creating directory ./authOidcApp - done!
 ✔ Downloading and extracting blank starter - done!
@@ -60,7 +61,7 @@ Next Steps:
 * Go to your newly created project: cd ./authOidcApp
 * Get Ionic DevApp for easy device testing: https://bit.ly/ionic-dev-app
 
-Sergueis-MacBook-Pro:workspace-portfolio-mgmt-dev-1 sergueifedotov$ cd ./authOidcApp
+cd ./authOidcApp
 $ ionic g page Second
 [OK] Generated a page named Second!
 $ ionic g provider AuthService
@@ -70,6 +71,7 @@ $ ionic g provider TimeoutService
 $ ionic g provider Global
 [OK] Generated a provider named Global!
 $ 
+```
 
 - Add to the package.json 
 ```
