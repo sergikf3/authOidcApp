@@ -662,4 +662,275 @@ export class SecondPage {
 
 and then browse to [http://localhost:8100](http://localhost:8100).
 
+## Authentication against the Cloud Foundry UAA identity provider
+
+
+- Retrieve the cloud foundry uaa project from the GitHub url: git://github.com/cloudfoundry/uaa.git
+
+- Generate the public and private keys for the jwt signing using the following commands:
+```
+openssl genpkey -algorithm RSA -out private_key.pem -pkeyopt rsa_keygen_bits:2048
+openssl rsa -pubout -in private_key.pem -out public_key.pem
+openssl rsa -in private_key.pem -out private_rsa_key.pem
+```
+Modify the uaa/uaa/src/main/resources/uaa.yml file as follows:
+```
+# Configuration in this file ixs overridden by an external file
+# if any of these exist:
+# [$UAA_CONFIG_URL, $UAA_CONFIG_PATH/uaa.yml, $CLOUD_FOUNDRY_CONFIG_PATH/uaa.yml]
+
+scim:
+  users:
+    - paul|welcome2|paul@test.org|Paul|Smith|uaa.admin
+    - stefan|welcome1|stefan@test.org|Stefan|Schmidt
+  groups:
+    zones.read: Read identity zones
+    zones.write: Create and update identity zones
+    idps.read: Retrieve identity providers
+    idps.write: Create and update identity providers
+    clients.admin: Create, modify and delete OAuth clients
+    clients.write: Create and modify OAuth clients
+    clients.read: Read information about OAuth clients
+    clients.secret: Change the password of an OAuth client
+    scim.write: Create, modify and delete SCIM entities, i.e. users and groups
+    scim.read: Read all SCIM entities, i.e. users and groups
+    scim.create: Create users
+    scim.userids: Read user IDs and retrieve users by ID
+    scim.zones: Control a user's ability to manage a zone
+    scim.invite: Send invitations to users
+    password.write: Change your password
+    oauth.approval: Manage approved scopes
+    oauth.login: Authenticate users outside of the UAA
+    openid: Access profile information, i.e. email, first and last name, and phone number
+    groups.update: Update group information and memberships
+    uaa.user: Act as a user in the UAA
+    uaa.resource: Serve resources protected by the UAA
+    uaa.admin: Act as an administrator throughout the UAA
+    uaa.none: Forbid acting as a user
+    uaa.offline_token: Allow offline access
+
+logout:
+  redirect:
+    parameter:
+      disable: false
+      whitelist:
+      - http://localhost:8100/assets/callback.html
+      - http://localhost:8100/
+    url: http://localhost:8100/
+
+oauth:
+  user:
+    authorities:
+      - openid
+      - scim.me
+      - cloud_controller.read
+      - cloud_controller.write
+      - cloud_controller_service_permissions.read
+      - password.write
+      - scim.userids
+      - uaa.user
+      - approvals.me
+      - oauth.approvals
+      - profile
+      - roles
+      - user_attributes
+      - uaa.offline_token
+  client:
+    encoder_cache: false
+    encoder_expiry: 600
+    secret:
+      policy:
+        minLength: 0
+        maxLength: 128
+        requireUpperCaseCharacter: 0
+        requireLowerCaseCharacter: 0
+        requireDigit: 0
+        requireSpecialCharacter: 0
+        
+  clients:
+    app1:
+      id: app1
+      scope: scim.userids,openid,uaa.user,cloud_controller.read,password.write,cloud_controller.write
+      authorized-grant-types: implicit,refresh_token,password,client_credentials,authorization_code
+      redirect-uri: http://localhost:8080/**,http://localhost:8080/app/,http://localhost:8100/**
+      autoapprove: true
+      authorities: uaa.resource
+      name: The Ultimate Oauth App1
+      signup-redirect-url: http://localhost:8100/assets/callback.html
+      change-email-redirect-url: http://localhost:8100/assets/callback.html
+      secret: app1secret
+
+# Default token signing key. Each installation MUST provide a unique key
+# in order for tokens to be usable only on that installation.
+
+jwt:
+  token:
+    verification-key: |
+      -----BEGIN PUBLIC KEY-----
+      MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApbFqU4Boid76qaY+kOW3
+      bCUEFL5Ysm6l9yvDcC3iDdeSlwj98IL3viNohGQvmZGzDxK9gEojAHaeFn19LlmW
+      OP7tt5vx2YJaBXu9La7mfEy7JFBFbYQXxb6WzMmO8ozc3zNB7b7onllNMPHo92lX
+      8wkT8onl3+3rtXqeHbS3siEBexY+ikzXCgffwYbEaWwBR2ywyF+BN9Lz5Glb3VAt
+      qMwv1P1H27NneazJhj5jTjvFPDf+bRhFcdOALba+Ly85CRLzW6kCrTXkKcmT9PVO
+      mUdNuTmWFkkfnqmpKd0AYgtR8jnOYL4RyuD4YRsgT+B7aaesq/OTZqpQmZhYvgD0
+      wwIDAQAB
+      -----END PUBLIC KEY-----
+    signing-key: |
+      -----BEGIN RSA PRIVATE KEY-----
+      MIIEpAIBAAKCAQEApbFqU4Boid76qaY+kOW3bCUEFL5Ysm6l9yvDcC3iDdeSlwj9
+      8IL3viNohGQvmZGzDxK9gEojAHaeFn19LlmWOP7tt5vx2YJaBXu9La7mfEy7JFBF
+      bYQXxb6WzMmO8ozc3zNB7b7onllNMPHo92lX8wkT8onl3+3rtXqeHbS3siEBexY+
+      ikzXCgffwYbEaWwBR2ywyF+BN9Lz5Glb3VAtqMwv1P1H27NneazJhj5jTjvFPDf+
+      bRhFcdOALba+Ly85CRLzW6kCrTXkKcmT9PVOmUdNuTmWFkkfnqmpKd0AYgtR8jnO
+      YL4RyuD4YRsgT+B7aaesq/OTZqpQmZhYvgD0wwIDAQABAoIBAGDUNHnF0dG4cC4S
+      S//rbuyRGThyIG1uAilW9uiot7E1KKKBC72xG8yO7rZnwfVx0v1dC0dci+Xqa+pi
+      vXQHwKVgPVWOmaBt7+PCc0SuMF21javkCR6+EhJqlb/pjlMqhK0fTEj+xvw63cRb
+      qrRjaJVL2c9kTOU3KgctOBfOE4fRl0GQ/zJ+ilgpQtExZgDW92m3eSzskfInuq4q
+      AlQ3+9WCq1Ml+abQjHKnuq7cAvxIEjMJv0ShVKzVjsgUO2wh9phVuhpVaQHq5Bd3
+      93awq6CacydnRBq0kcoWXHRKrFSVSJ338cX5j1v9PDdbOv3/aBWVLUj8WNdNeew/
+      nvmOJ3ECgYEA0kyMTzqqXeCTTNCmX0E5t/dPQBjiDCL85yCtEKFUQsU5vo6qlv/H
+      DN5W6K4mnLOxl+PQ5VvVzMPt+KLTW4kkfJT4pDoEm0wxkvG/Vt5AjiImXwBJp6XX
+      06MV9Zcw1bWyMpz6/K952cMuro5AO6lzW3SRJnyPCKCTnggJeMnfamsCgYEAybNT
+      jahZiS3sTx6YaUJyF689Qgbcj8shkBqlbHym7U4rR2Yr49/plAXqI6tWUkMraU1j
+      L4K2zVBqdHmMl/4+pCJdmmpqt2uvg59WhQwCp5P76PtLrsPpM8SazZ35iF8N19K+
+      vL6bI3qgy1jYML33LI6oJed1lowNzJ5yyT7+ZQkCgYEAjZm9YBvAWzW7+R0E6V6h
+      3p1HX4Fhs4pbf8UgwvHeKpdiKk0l0EapYKDVJBcfKKRWEE/1eHo9m4LR2XjJl/jf
+      +ILWaL4oG+lR9/+PNo6wKQQVkiI/dgLVMEu/nX4QA9Y0BqBs33fINDiYVjCyT3np
+      kssKcT+tj8GPo/kFZ6+GH8ECgYEAlsZEaRo1hAQeJ665Q8X1v5qxcg/rBFpWRoCE
+      tCoiJjZOx9qqaHdTBeG9+tfzeR7Y7qh4wmU1/Rhl25eY722QqeU+j1WJXH9U/lE3
+      vdESku5eWvSuyH+ObbJD/fxfMf/MO09AYZsiIU1jsV5CjX0Tre0d6Oey0Mz068Zu
+      C93ZEPECgYB/N3Ape3G/9ximYuu02qaVbhOrN0z/43mWM2VW7FJ8mLuX6OW+WqNx
+      /EPHol2vIabYItRigllm89FIleux1E0UidtUiRRPzV1UceM1ErKDlrKSE5xUuVrJ
+      e9koiqkcH/NSFUClM3q/u8zsWTQ6lpZ2Zoo5f0i8IKG83tpssD1mrg==
+      -----END RSA PRIVATE KEY-----
+    claims:
+      exclude:
+        - authorities
+    policy:
+      # Will override global validity policies for the default zone only.
+      accessTokenValiditySeconds: 3600
+      refreshTokenValiditySeconds: 3600
+      activeKeyId: key-id-1
+      keys:
+        key-id-1:
+          signingKey: |
+             -----BEGIN RSA PRIVATE KEY-----
+             MIIEpAIBAAKCAQEApbFqU4Boid76qaY+kOW3bCUEFL5Ysm6l9yvDcC3iDdeSlwj9
+             8IL3viNohGQvmZGzDxK9gEojAHaeFn19LlmWOP7tt5vx2YJaBXu9La7mfEy7JFBF
+             bYQXxb6WzMmO8ozc3zNB7b7onllNMPHo92lX8wkT8onl3+3rtXqeHbS3siEBexY+
+             ikzXCgffwYbEaWwBR2ywyF+BN9Lz5Glb3VAtqMwv1P1H27NneazJhj5jTjvFPDf+
+             bRhFcdOALba+Ly85CRLzW6kCrTXkKcmT9PVOmUdNuTmWFkkfnqmpKd0AYgtR8jnO
+             YL4RyuD4YRsgT+B7aaesq/OTZqpQmZhYvgD0wwIDAQABAoIBAGDUNHnF0dG4cC4S
+             S//rbuyRGThyIG1uAilW9uiot7E1KKKBC72xG8yO7rZnwfVx0v1dC0dci+Xqa+pi
+             vXQHwKVgPVWOmaBt7+PCc0SuMF21javkCR6+EhJqlb/pjlMqhK0fTEj+xvw63cRb
+             qrRjaJVL2c9kTOU3KgctOBfOE4fRl0GQ/zJ+ilgpQtExZgDW92m3eSzskfInuq4q
+             AlQ3+9WCq1Ml+abQjHKnuq7cAvxIEjMJv0ShVKzVjsgUO2wh9phVuhpVaQHq5Bd3
+             93awq6CacydnRBq0kcoWXHRKrFSVSJ338cX5j1v9PDdbOv3/aBWVLUj8WNdNeew/
+             nvmOJ3ECgYEA0kyMTzqqXeCTTNCmX0E5t/dPQBjiDCL85yCtEKFUQsU5vo6qlv/H
+             DN5W6K4mnLOxl+PQ5VvVzMPt+KLTW4kkfJT4pDoEm0wxkvG/Vt5AjiImXwBJp6XX
+             06MV9Zcw1bWyMpz6/K952cMuro5AO6lzW3SRJnyPCKCTnggJeMnfamsCgYEAybNT
+             jahZiS3sTx6YaUJyF689Qgbcj8shkBqlbHym7U4rR2Yr49/plAXqI6tWUkMraU1j
+             L4K2zVBqdHmMl/4+pCJdmmpqt2uvg59WhQwCp5P76PtLrsPpM8SazZ35iF8N19K+
+             vL6bI3qgy1jYML33LI6oJed1lowNzJ5yyT7+ZQkCgYEAjZm9YBvAWzW7+R0E6V6h
+             3p1HX4Fhs4pbf8UgwvHeKpdiKk0l0EapYKDVJBcfKKRWEE/1eHo9m4LR2XjJl/jf
+             +ILWaL4oG+lR9/+PNo6wKQQVkiI/dgLVMEu/nX4QA9Y0BqBs33fINDiYVjCyT3np
+             kssKcT+tj8GPo/kFZ6+GH8ECgYEAlsZEaRo1hAQeJ665Q8X1v5qxcg/rBFpWRoCE
+             tCoiJjZOx9qqaHdTBeG9+tfzeR7Y7qh4wmU1/Rhl25eY722QqeU+j1WJXH9U/lE3
+             vdESku5eWvSuyH+ObbJD/fxfMf/MO09AYZsiIU1jsV5CjX0Tre0d6Oey0Mz068Zu
+             C93ZEPECgYB/N3Ape3G/9ximYuu02qaVbhOrN0z/43mWM2VW7FJ8mLuX6OW+WqNx
+             /EPHol2vIabYItRigllm89FIleux1E0UidtUiRRPzV1UceM1ErKDlrKSE5xUuVrJ
+             e9koiqkcH/NSFUClM3q/u8zsWTQ6lpZ2Zoo5f0i8IKG83tpssD1mrg==
+             -----END RSA PRIVATE KEY-----
+      # Sets the default validity for all zones
+      global:
+        accessTokenValiditySeconds: 3600
+        refreshTokenValiditySeconds: 3600
+#    # This is a feature flag to turn on/off the refresh token issuance behavior. If set to true, the refresh token is only granted to clients with a scope of refresh_token for offline access.
+    refresh:
+      restrict_grant: true
+      unique: false
+      format: jwt
+
+login:
+  # Enable create account and forgot password links on the Login Server (enabled by default)
+  #selfServiceLinksEnabled: true
+  #base URL that the login server can be reached at
+#  oauth:
+#    providers:
+#      my-oauth-provider:
+#        type: oauth2.0
+#        authUrl: http://my-auth.com
+#        tokenUrl: http://my-token.com
+#        tokenKey: my-token-key
+#        tokenKeyUrl:
+#        issuer: token issuer (iss)
+#        scopes:
+#          - openid
+#          - scope.example
+#        emailDomain:
+#          - example.com
+#        linkText: My Oauth Provider
+#        showLinkText: true
+#        addShadowUserOnLogin: false
+#        relyingPartyId: uaa
+#        relyingPartySecret: secret
+#        attributeMappings:
+#          given_name: firstName
+#          family_name: lastname
+#          user_name: username
+#          external_groups:
+#            - scopes_example_group
+#            - roles_example_group
+  url: http://localhost:8080/uaa
+#  idpDiscoveryEnabled: true
+#  accountChooserEnabled: true
+  authorize:
+    url: http://localhost:8080/uaa/oauth/authorize
+
+uaa:
+  # The hostname of the UAA that this login server will connect to
+  url: http://localhost:8080/uaa
+  token:
+    url: http://localhost:8080/uaa/oauth/token
+  approvals:
+    url: http://localhost:8080/uaa/approvals
+  login:
+    url: http://localhost:8080/uaa/authenticate
+  limitedFunctionality:
+    enabled: false
+    whitelist:
+      endpoints:
+        - /oauth/authorize/**
+        - /oauth/token/**
+        - /check_token/**
+        - /login/**
+        - /login.do
+        - /logout/**
+        - /logout.do
+        - /saml/**
+        - /autologin/**
+        - /authenticate/**
+        - /idp_discovery/**
+      methods:
+        - GET
+        - HEAD
+        - OPTIONS
+
+
+```
+
+The public and private key settings must be adjusted according to the generated keys.
+
+- Go to the uaa directory and run the uaa build using the following command:
+
+```
+./gradlew startUaaContainer
+```
+
+- Check the login screen started with the http://localhost:8080/uaa url
+- Modify the environment.ts file in the ionic application using the uaa cloud foundry settings (see sample environment-cloudfoundry-uaa.ts), restart the ionic application and try login and logout with the user/password values stefan/welcome1 or paul/welcome2 .
+
+
+
+
 
